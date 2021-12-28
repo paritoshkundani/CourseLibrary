@@ -4,7 +4,9 @@ using CourseLibrary.API.Services;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
+using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,7 +34,56 @@ namespace CourseLibrary.API
            {
                // this will force api to return 406 status code for output it does not support
                setupAction.ReturnHttpNotAcceptable = true;
-           }).AddXmlDataContractSerializerFormatters();
+           }).AddXmlDataContractSerializerFormatters()
+           .ConfigureApiBehaviorOptions(setupAction =>
+           {
+               // author wanted to create a different validation error response, instead of 400 wanted 422 status
+               // and a few other things to change the default .net response for validation errors
+               // wants it to be like RFC format
+               setupAction.InvalidModelStateResponseFactory = context =>
+               {
+                   // create a problem details objects
+                   var problemDetailsFactory = context.HttpContext.RequestServices
+                    .GetRequiredService<ProblemDetailsFactory>();
+                   var problemDetails = problemDetailsFactory.CreateValidationProblemDetails(
+                       context.HttpContext,
+                       context.ModelState
+                   );
+
+                   // add additional info not added by default
+                   problemDetails.Detail = "See the errors field for details";
+                   problemDetails.Instance = context.HttpContext.Request.Path;
+
+                   // find out which status code to use
+                   var actionExecutingContext = context as Microsoft.AspNetCore.Mvc.Filters.ActionExecutingContext;
+
+                   // if there are modelstate errors & all arguments were correctly
+                   // found/parsed we're dealing with validation errors
+                   if ((context.ModelState.ErrorCount > 0) &&
+                       (actionExecutingContext?.ActionArguments.Count ==
+                       context.ActionDescriptor.Parameters.Count))
+                   {
+                       problemDetails.Type = "https://courselibrary.com/modelvalidationproblems";
+                       problemDetails.Status = StatusCodes.Status422UnprocessableEntity;
+                       problemDetails.Title = "One or more validation errors occurred.";
+
+                       return new UnprocessableEntityObjectResult(problemDetails)
+                       {
+                           ContentTypes = { "application/problem+json" }
+                       };
+                   };
+
+                   // if one of the arguments wasn't correctly found / couldn't be parsed
+                   // we're dealing with null/unparseable input
+                   problemDetails.Status = StatusCodes.Status400BadRequest;
+                   problemDetails.Title = "One or more validation errors occurred.";
+
+                   return new UnprocessableEntityObjectResult(problemDetails)
+                   {
+                       ContentTypes = { "application/problem+json" }
+                   };
+               };
+           });
 
             // register automapper (added AutoMapper.Extensions.Microsoft.DependencyInjection package, that includes AutoMapper)
             // will automatically scan the assemblies and check if we have profiles for them for mapping configurations
