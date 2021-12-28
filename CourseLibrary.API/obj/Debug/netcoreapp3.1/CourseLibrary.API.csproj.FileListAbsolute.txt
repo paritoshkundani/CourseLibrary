@@ -37,3 +37,5 @@ C:\Projects\CourseLibrary\CourseLibrary.API\bin\Debug\netcoreapp3.1\runtimes\win
 C:\Projects\CourseLibrary\CourseLibrary.API\bin\Debug\netcoreapp3.1\runtimes\unix\lib\netcoreapp2.0\System.Runtime.Caching.dll
 C:\Projects\CourseLibrary\CourseLibrary.API\bin\Debug\netcoreapp3.1\runtimes\win\lib\netcoreapp2.0\System.Runtime.Caching.dll
 C:\Projects\CourseLibrary\CourseLibrary.API\bin\Debug\netcoreapp3.1\runtimes\win\lib\netstandard2.0\System.Security.Cryptography.ProtectedData.dll
+C:\Projects\CourseLibrary\CourseLibrary.API\bin\Debug\netcoreapp3.1\AutoMapper.dll
+C:\Projects\CourseLibrary\CourseLibrary.API\bin\Debug\netcoreapp3.1\AutoMapper.Extensions.Microsoft.DependencyInjection.dll

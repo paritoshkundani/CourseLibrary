@@ -1,9 +1,11 @@
 {
   "version": 2,
-  "dgSpecHash": "qD3Z5z0bK8wWUEOpYoUNmMobVS7n0XtYIUi4e5eNCvwUVTOLcgGdD3XqSZk0z+Wz2EKHnWVWA96ptS83KmOsnw==",
+  "dgSpecHash": "JwlGONeXug1d3PsibsSAvysv+8ppa7Jfo4cXFczBBsWnn5cF+kFGjIDQVU3P2lO6Vx8RLBNAa7mlp6ODBmCvZw==",
   "success": true,
   "projectFilePath": "C:\\Projects\\CourseLibrary\\CourseLibrary.API\\CourseLibrary.API.csproj",
   "expectedPackageFiles": [
+    "C:\\Users\\ParitoshKundani\\.nuget\\packages\\automapper\\8.1.1\\automapper.8.1.1.nupkg.sha512",
+    "C:\\Users\\ParitoshKundani\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\6.1.1\\automapper.extensions.microsoft.dependencyinjection.6.1.1.nupkg.sha512",
     "C:\\Users\\ParitoshKundani\\.nuget\\packages\\microsoft.csharp\\4.6.0\\microsoft.csharp.4.6.0.nupkg.sha512",
     "C:\\Users\\ParitoshKundani\\.nuget\\packages\\microsoft.data.sqlclient\\1.0.19249.1\\microsoft.data.sqlclient.1.0.19249.1.nupkg.sha512",
     "C:\\Users\\ParitoshKundani\\.nuget\\packages\\microsoft.entityframeworkcore\\3.0.0\\microsoft.entityframeworkcore.3.0.0.nupkg.sha512",
