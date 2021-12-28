@@ -1,5 +1,6 @@
 ﻿using CourseLibrary.API.DbContexts;
-using CourseLibrary.API.Entities; 
+using CourseLibrary.API.Entities;
+using CourseLibrary.API.ResourceParameters;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -121,7 +122,41 @@ namespace CourseLibrary.API.Services
         {
             return _context.Authors.ToList<Author>();
         }
-         
+
+        public IEnumerable<Author> GetAuthors(AuthorResourceParameters authorResourceParameters)
+        {
+            if (authorResourceParameters == null)
+            {
+                throw new ArgumentException(nameof(authorResourceParameters));
+            }
+
+            // if neither is passed in call GetAuthors
+            if (string.IsNullOrWhiteSpace(authorResourceParameters.MainCategory) 
+                && string.IsNullOrWhiteSpace(authorResourceParameters.SearchQuery))
+            {
+                return GetAuthors();
+            }
+
+            var collection = _context.Authors as IQueryable<Author>;
+
+            if (!string.IsNullOrWhiteSpace(authorResourceParameters.MainCategory))
+            {
+                var mainCategory = authorResourceParameters.MainCategory.Trim();
+                collection = collection.Where(a => a.MainCategory == mainCategory);
+            }
+
+            // can also use full text search tools like Lucene (mentioned at 2:00min mark in Demo - Searching through resource collections)
+            if (!string.IsNullOrWhiteSpace(authorResourceParameters.SearchQuery))
+            {
+                var searchQuery = authorResourceParameters.SearchQuery.Trim();
+                collection = collection.Where(a => a.MainCategory.Contains(searchQuery)
+                    || a.FirstName.Contains(searchQuery)
+                    || a.LastName.Contains(searchQuery));
+            }
+
+            return collection.ToList();
+        }
+
         public IEnumerable<Author> GetAuthors(IEnumerable<Guid> authorIds)
         {
             if (authorIds == null)
