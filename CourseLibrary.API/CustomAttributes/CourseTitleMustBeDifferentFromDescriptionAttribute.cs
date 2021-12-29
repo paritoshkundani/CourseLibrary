@@ -11,17 +11,17 @@ namespace CourseLibrary.API.CustomAttributes
     {
         // object is the object to validate (here Course)
         // validationContext will be used to access the object we're validating
-        // here since we're checking aganist properties in the same class (CourseForCreationDto) they are same
+        // here since we're checking aganist properties in the same class (CourseForManipulationDto) they are same
         protected override ValidationResult IsValid(object value, ValidationContext validationContext)
         {
-            var course = (CourseForCreationDto)validationContext.ObjectInstance;
+            var course = (CourseForManipulationDto)validationContext.ObjectInstance;
 
             if (course.Title == course.Description)
             {
-                // ErrorMessage is setup in CourseForCreationDto attribute setup, otherwise put a string here
+                // ErrorMessage is setup in CourseForManipulationDto attribute setup, otherwise put a string here
                 return new ValidationResult(
                     ErrorMessage,
-                    new[] { "CourseForCreationDto" }
+                    new[] { "CourseForManipulationDto" }
                 );
             }
 

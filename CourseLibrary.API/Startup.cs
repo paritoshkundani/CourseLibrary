@@ -11,6 +11,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Newtonsoft.Json.Serialization;
 using System;
 
 namespace CourseLibrary.API
@@ -30,11 +31,21 @@ namespace CourseLibrary.API
 
             // by default api returns json as output as that's the first item in outputformatters
             // we want to also support xml, but not as default, so add it to the by appending it
+            // after AddNewtonsoftJson, otherwise the default Json parser will work
+            // but in this exercise we used newtonsoft for patch updates portion but make it before
+            // xml else we will need to set Accept header in Postman to get json results, otherwise
+            // will default to Xml if that is before newtonsoft
             services.AddControllers(setupAction =>
            {
                // this will force api to return 406 status code for output it does not support
                setupAction.ReturnHttpNotAcceptable = true;
-           }).AddXmlDataContractSerializerFormatters()
+           })
+           .AddNewtonsoftJson(setupAction =>
+           {
+               // using newtonsoft mainly for patch section and to make sure we get camelcase
+               setupAction.SerializerSettings.ContractResolver = new CamelCasePropertyNamesContractResolver();
+           })
+           .AddXmlDataContractSerializerFormatters()
            .ConfigureApiBehaviorOptions(setupAction =>
            {
                // author wanted to create a different validation error response, instead of 400 wanted 422 status
