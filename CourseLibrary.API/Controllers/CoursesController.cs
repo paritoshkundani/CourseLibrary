@@ -74,7 +74,7 @@ namespace CourseLibrary.API.Controllers
             var courseToReturn = _mapper.Map<CourseDto>(courseEntity);
             // return 201 created response
             return CreatedAtRoute(
-                "GetCourseForAuthor", 
+                "GetCourseForAuthor",
                 new { authorId = authorId, courseId = courseEntity.Id },
                 courseToReturn
             );
@@ -106,7 +106,7 @@ namespace CourseLibrary.API.Controllers
 
                 // 201
                 return CreatedAtRoute("GetCourseForAuthor",
-                    new { authorId = authorId, courseId = courseToReturn.Id},
+                    new { authorId = authorId, courseId = courseToReturn.Id },
                     courseToReturn);
             }
 
@@ -143,15 +143,15 @@ namespace CourseLibrary.API.Controllers
                 {
                     return ValidationProblem(ModelState);
                 }
-                
+
                 var courseToAdd = _mapper.Map<Entities.Course>(courseDto);
                 courseToAdd.Id = courseId;
-                
+
                 _courseLibraryRepository.AddCourse(authorId, courseToAdd);
                 _courseLibraryRepository.Save();
-                
+
                 var courseToReturn = _mapper.Map<CourseDto>(courseToAdd);
-                
+
                 // 201
                 return CreatedAtRoute("GetCourseForAuthor",
                     new { authorId = authorId, courseId = courseToReturn.Id },
@@ -175,6 +175,28 @@ namespace CourseLibrary.API.Controllers
 
             _courseLibraryRepository.UpdateCourse(coursesForAuthorFromRepo);
 
+            _courseLibraryRepository.Save();
+
+            // 204
+            return NoContent();
+        }
+
+        [HttpDelete("{courseId}")]
+        public ActionResult DeleteCourseForAuthor(Guid authorId, Guid courseId)
+        {
+            if (!_courseLibraryRepository.AuthorExists(authorId))
+            {
+                return NotFound();
+            }
+
+            var coursesForAuthorFromRepo = _courseLibraryRepository.GetCourse(authorId, courseId);
+
+            if (coursesForAuthorFromRepo == null)
+            {
+                return NotFound();
+            }
+
+            _courseLibraryRepository.DeleteCourse(coursesForAuthorFromRepo);
             _courseLibraryRepository.Save();
 
             // 204
