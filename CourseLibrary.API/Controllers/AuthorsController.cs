@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace CourseLibrary.API.Controllers
@@ -30,12 +31,34 @@ namespace CourseLibrary.API.Controllers
         // can be used to verify something route is still there, look for 200 status without
         // checking for body, returns just response headers
         // because we used ControllerBase it is able to infer mainCategory and searchQuery are from QueryString (before we changed it to AuthorResourceParameters)
-        [HttpGet()]
+        [HttpGet(Name = "GetAuthors")]
         [HttpHead]
         public ActionResult<IEnumerable<AuthorDto>> GetAuthors([FromQuery] AuthorResourceParameters authorResourceParameters)
         {
             var authorsFromRepo = _courseLibraryRepository.GetAuthors(authorResourceParameters);
-            
+
+            // is there a previous page
+            var previousPageLink = authorsFromRepo.HasPrevious ?
+                CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.PreviousPage) : null;
+
+            // is there a next page
+            var nextPageLink = authorsFromRepo.HasNext ?
+                CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.NextPage) : null;
+
+            // create metadata
+            var paginationMetadata = new
+            {
+                totalCount = authorsFromRepo.TotalCount,
+                pageSize = authorsFromRepo.PageSize,
+                currentPage = authorsFromRepo.CurrentPage,
+                totalPages = authorsFromRepo.TotalPages,
+                previousPageLink = previousPageLink,  // since the name is the same, VS will allow just previousPageLink without previousPageLink = previousPageLink
+                nextPageLink = nextPageLink // same as above, that is why VS is showing a tooltip
+            };
+
+            // create a custom header response
+            Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(paginationMetadata));
+
             return Ok(_mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo));
         }
 
@@ -95,6 +118,41 @@ namespace CourseLibrary.API.Controllers
 
             // 204
             return NoContent();
+        }
+
+        // used to generate the previous/next links to return to client
+        private string CreateAuthorsResouceUri(AuthorResourceParameters authorResourceParameters, ResourceUriType type)
+        {
+            switch (type)
+            {
+                case ResourceUriType.PreviousPage:
+                    return Url.Link("GetAuthors",
+                        new
+                        {
+                            pageNumber = authorResourceParameters.PageNumber - 1,
+                            pageSize = authorResourceParameters.PageSize,
+                            mainCategory = authorResourceParameters.MainCategory,
+                            searchQuery = authorResourceParameters.SearchQuery
+                        });
+                case ResourceUriType.NextPage:
+                    return Url.Link("GetAuthors",
+                        new
+                        {
+                            pageNumber = authorResourceParameters.PageNumber + 1,
+                            pageSize = authorResourceParameters.PageSize,
+                            mainCategory = authorResourceParameters.MainCategory,
+                            searchQuery = authorResourceParameters.SearchQuery
+                        });
+                default:
+                    return Url.Link("GetAuthors",
+                        new
+                        {
+                            pageNumber = authorResourceParameters.PageNumber,
+                            pageSize = authorResourceParameters.PageSize,
+                            mainCategory = authorResourceParameters.MainCategory,
+                            searchQuery = authorResourceParameters.SearchQuery
+                        });
+            }
         }
     }
 }

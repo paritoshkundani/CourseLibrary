@@ -1,5 +1,6 @@
 ﻿using CourseLibrary.API.DbContexts;
 using CourseLibrary.API.Entities;
+using CourseLibrary.API.Helpers;
 using CourseLibrary.API.ResourceParameters;
 using System;
 using System.Collections.Generic;
@@ -123,18 +124,11 @@ namespace CourseLibrary.API.Services
             return _context.Authors.ToList<Author>();
         }
 
-        public IEnumerable<Author> GetAuthors(AuthorResourceParameters authorResourceParameters)
+        public PagedList<Author> GetAuthors(AuthorResourceParameters authorResourceParameters)
         {
             if (authorResourceParameters == null)
             {
                 throw new ArgumentException(nameof(authorResourceParameters));
-            }
-
-            // if neither is passed in call GetAuthors
-            if (string.IsNullOrWhiteSpace(authorResourceParameters.MainCategory) 
-                && string.IsNullOrWhiteSpace(authorResourceParameters.SearchQuery))
-            {
-                return GetAuthors();
             }
 
             var collection = _context.Authors as IQueryable<Author>;
@@ -154,7 +148,9 @@ namespace CourseLibrary.API.Services
                     || a.LastName.Contains(searchQuery));
             }
 
-            return collection.ToList();
+            return PagedList<Author>.Create(collection,
+                authorResourceParameters.PageNumber,
+                authorResourceParameters.PageSize);
         }
 
         public IEnumerable<Author> GetAuthors(IEnumerable<Guid> authorIds)
