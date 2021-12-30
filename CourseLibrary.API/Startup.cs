@@ -96,6 +96,9 @@ namespace CourseLibrary.API
                };
            });
 
+            // register PropertyMappingService (for ordering collections between dto and entity mappings)
+            services.AddTransient<IPropertyMappingService, PropertyMappingService>();
+
             // register automapper (added AutoMapper.Extensions.Microsoft.DependencyInjection package, that includes AutoMapper)
             // will automatically scan the assemblies and check if we have profiles for them for mapping configurations
             services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
