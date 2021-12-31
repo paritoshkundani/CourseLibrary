@@ -15,6 +15,7 @@ namespace CourseLibrary.API.ResourceParameters
 
         private int _pageSize = 10;
         public string OrderBy { get; set; } = "Name";
+        public string Fields { get; set; }
 
         // limit it's max to 20
         public int PageSize
