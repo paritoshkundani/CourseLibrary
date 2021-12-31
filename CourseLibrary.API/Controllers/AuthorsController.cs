@@ -60,6 +60,8 @@ namespace CourseLibrary.API.Controllers
 
             var authorsFromRepo = _courseLibraryRepository.GetAuthors(authorResourceParameters);
 
+            /*
+             * removed as now using new HATEOAS way
             // is there a previous page
             var previousPageLink = authorsFromRepo.HasPrevious ?
                 CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.PreviousPage) : null;
@@ -67,6 +69,7 @@ namespace CourseLibrary.API.Controllers
             // is there a next page
             var nextPageLink = authorsFromRepo.HasNext ?
                 CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.NextPage) : null;
+            */
 
             // create metadata
             var paginationMetadata = new
@@ -75,15 +78,37 @@ namespace CourseLibrary.API.Controllers
                 pageSize = authorsFromRepo.PageSize,
                 currentPage = authorsFromRepo.CurrentPage,
                 totalPages = authorsFromRepo.TotalPages,
-                previousPageLink = previousPageLink,  // since the name is the same, VS will allow just previousPageLink without previousPageLink = previousPageLink
-                nextPageLink = nextPageLink // same as above, that is why VS is showing a tooltip
+
+               // previousPageLink = previousPageLink,  // since the name is the same, VS will allow just previousPageLink without previousPageLink = previousPageLink
+               // nextPageLink = nextPageLink // same as above, that is why VS is showing a tooltip
             };
 
             // create a custom header response
             Response.Headers.Add("X-Pagination", JsonSerializer.Serialize(paginationMetadata));
 
-            return Ok(_mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
-                .ShapeData(authorResourceParameters.Fields));
+            var links = CreateLinksForAuthors(authorResourceParameters, authorsFromRepo.HasNext, authorsFromRepo.HasPrevious);
+
+            var shapedAuthors = _mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
+                .ShapeData(authorResourceParameters.Fields);
+
+            var shapedAuthorsWithLinks = shapedAuthors.Select(author =>
+            {
+                var authorAsDictionary = author as IDictionary<string, object>;
+                var authorLinks = CreateLinksForAuthor((Guid)authorAsDictionary["Id"], null);
+                authorAsDictionary.Add("links", authorLinks);
+                return authorAsDictionary;
+            });
+
+            var linkedCollectionResource = new
+            {
+                value = shapedAuthorsWithLinks,
+                links
+            };
+
+            return Ok(linkedCollectionResource);
+
+            //return Ok(_mapper.Map<IEnumerable<AuthorDto>>(authorsFromRepo)
+            //    .ShapeData(authorResourceParameters.Fields));
         }
 
         // :guid will force it to only take guid, incase there is another similar with int for example
@@ -102,7 +127,19 @@ namespace CourseLibrary.API.Controllers
                 return NotFound();
             }
 
-            return Ok(_mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields));
+            var links = CreateLinksForAuthor(authorId, fields);
+
+            // get the ExpandoObject after shaping data based on fields
+            // and add the links to it
+            var linkedResourceToReturn =
+                _mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields)
+                as IDictionary<string, object>;
+
+            linkedResourceToReturn.Add("links", links);
+
+            return Ok(linkedResourceToReturn);
+
+           // return Ok(_mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields));
         }
 
         // since we used [ApiController] it includes the bad request check by default:
@@ -110,7 +147,7 @@ namespace CourseLibrary.API.Controllers
         // {
         //  return BadRequest();
         // }
-        [HttpPost]
+        [HttpPost(Name = "CreateAuthor")]
         public ActionResult<AuthorDto> CreateAuthor(AuthorForCreationDto author)
         {
             var authorEntity = _mapper.Map<Entities.Author>(author);
@@ -118,8 +155,16 @@ namespace CourseLibrary.API.Controllers
             _courseLibraryRepository.Save();
 
             var authorToReturn = _mapper.Map<Models.AuthorDto>(authorEntity);
+
+            var links = CreateLinksForAuthor(authorToReturn.Id, null);
+
+            // make an ExpandoObject to add the links to the existing response
+            var linkedResourceReturn = authorToReturn.ShapeData(null)
+                as IDictionary<string, object>;
+            linkedResourceReturn.Add("links", links);
+
             // return 201 created response
-            return CreatedAtRoute("GetAuthor", new { authorId = authorEntity.Id }, authorToReturn);
+            return CreatedAtRoute("GetAuthor", new { authorId = linkedResourceReturn["Id"] }, linkedResourceReturn);
         }
 
         // will let the consumer know if they can get the resouce, post to it, delete it and so on
@@ -130,7 +175,7 @@ namespace CourseLibrary.API.Controllers
             return Ok();
         }
 
-        [HttpDelete("{authorId}")]
+        [HttpDelete("{authorId}", Name = "DeleteAuthor")]
         public ActionResult DeleteAuthor(Guid authorId)
         {
             var authorFromRepo = _courseLibraryRepository.GetAuthor(authorId);
@@ -176,6 +221,7 @@ namespace CourseLibrary.API.Controllers
                             mainCategory = authorResourceParameters.MainCategory,
                             searchQuery = authorResourceParameters.SearchQuery
                         });
+                case ResourceUriType.Current:
                 default:
                     return Url.Link("GetAuthors",
                         new
@@ -188,6 +234,69 @@ namespace CourseLibrary.API.Controllers
                             searchQuery = authorResourceParameters.SearchQuery
                         });
             }
+        }
+
+        // create HATEOAS links (providing links with data returned, allowing consumer to know whatelse they
+        // can do with Authors data
+        private IEnumerable<LinkDto> CreateLinksForAuthor(Guid authorId, string fields)
+        {
+            var links = new List<LinkDto>();
+
+            if (string.IsNullOrWhiteSpace(fields))
+            {
+                links.Add(
+                    new LinkDto(Url.Link("GetAuthor", new { authorId }),
+                    "self",
+                    "GET"));
+            }
+            else
+            {
+                links.Add(
+                    new LinkDto(Url.Link("GetAuthor", new { authorId, fields }),
+                    "self",
+                    "GET"));
+            }
+
+            links.Add(
+                new LinkDto(Url.Link("DeleteAuthor", new { authorId }),
+                "delete_author",
+                "DELETE"));
+
+            links.Add(
+                new LinkDto(Url.Link("CreateCourseForAuthor", new { authorId }),
+                "create_course_for_author",
+                "POST"));
+
+            links.Add(
+                new LinkDto(Url.Link("GetCoursesForAuthor", new { authorId }),
+                "courses",
+                "GET"));
+
+            return links;
+        }
+
+        private IEnumerable<LinkDto> CreateLinksForAuthors(AuthorResourceParameters authorResourceParameters,
+            bool hasNext, bool hasPrevious)
+        {
+            var links = new List<LinkDto>();
+
+            // self
+            links.Add(new LinkDto(CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.Current)
+                , "self", "GET"));
+
+            if (hasNext)
+            {
+                links.Add(new LinkDto(CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.NextPage)
+                    , "nextPage", "GET"));
+            }
+
+            if (hasPrevious)
+            {
+                links.Add(new LinkDto(CreateAuthorsResouceUri(authorResourceParameters, ResourceUriType.PreviousPage)
+                    , "previousPage", "GET"));
+            }
+
+            return links;
         }
     }
 }
