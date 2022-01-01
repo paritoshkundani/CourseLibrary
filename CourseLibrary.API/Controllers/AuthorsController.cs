@@ -1,10 +1,12 @@
 ﻿using AutoMapper;
+using CourseLibrary.API.ActionConstraints;
 using CourseLibrary.API.Entities;
 using CourseLibrary.API.Helpers;
 using CourseLibrary.API.Models;
 using CourseLibrary.API.ResourceParameters;
 using CourseLibrary.API.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Net.Http.Headers;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -112,9 +114,26 @@ namespace CourseLibrary.API.Controllers
         }
 
         // :guid will force it to only take guid, incase there is another similar with int for example
+        // mediaType we get to check the Accept header and return different results based on it
+        // Produce tells what API can send response back as, we can do it globally like we did in 
+        // startup for application/vnd.marvin.hateoas+json but here wanted to show a Action specific way as well
+        // we can apply Produces at Controller level as well
         [HttpGet("{authorId:guid}", Name = "GetAuthor")]
-        public IActionResult GetAuthor(Guid authorId, string fields)
+        [Produces("application/json",
+            "application/vnd.marvin.hateoas+json",
+            "application/vnd.marvin.author.full+json",
+            "application/vnd.marvin.author.full.hateoas+json",
+            "application/vnd.marvin.author.friendly+json",
+            "application/vnd.marvin.author.friendly.hateoas+json")]
+        public IActionResult GetAuthor(Guid authorId, string fields, [FromHeader(Name = "Accept")] string mediaType)
         {
+            // make sure media type if parsable to confirm format is ok, as here we will also
+            // return a vedor specific sometimes
+            if (!MediaTypeHeaderValue.TryParse(mediaType, out MediaTypeHeaderValue parseMediaType))
+            {
+                return BadRequest();
+            }
+
             if (!_propertyCheckerService.TypeHasProperties<AuthorDto>(fields))
             {
                 return BadRequest();
@@ -127,19 +146,76 @@ namespace CourseLibrary.API.Controllers
                 return NotFound();
             }
 
-            var links = CreateLinksForAuthor(authorId, fields);
+            // do we have hateoas in accept header
+            var includeLinks = parseMediaType.SubTypeWithoutSuffix.EndsWith("hateoas", StringComparison.InvariantCultureIgnoreCase);
 
-            // get the ExpandoObject after shaping data based on fields
-            // and add the links to it
-            var linkedResourceToReturn =
-                _mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields)
+            IEnumerable<LinkDto> links = new List<LinkDto>();
+
+            if (includeLinks)
+            {
+                links = CreateLinksForAuthor(authorId, fields);
+            }
+
+            // checking to see if the :full is in accept header or not
+            var primaryMediaType = includeLinks ?
+                parseMediaType.SubTypeWithoutSuffix
+                .Substring(0, parseMediaType.SubTypeWithoutSuffix.Length - 8)
+                : parseMediaType.SubTypeWithoutSuffix;
+
+            // full author
+            if (primaryMediaType == "vnd.marvin.author.full")
+            {
+                var fullResourceToReturn = _mapper.Map<AuthorFullDto>(authorFromRepo)
+                    .ShapeData(fields) as IDictionary<string, object>;
+
+                if (includeLinks)
+                {
+                    fullResourceToReturn.Add("links", links);
+                }
+
+                return Ok(fullResourceToReturn);
+            }
+
+            // friendly author
+            var friendlyResourceToReturn = _mapper.Map<AuthorDto>(authorFromRepo)
+                    .ShapeData(fields) as IDictionary<string, object>;
+
+            if (includeLinks)
+            {
+                friendlyResourceToReturn.Add("links", links);
+            }
+
+            return Ok(friendlyResourceToReturn);
+        }
+
+        // RequestHeaderMatchesMediaType is a custom attribute made to ROUTE this method if
+        // Content-Type is application/vnd.marvin.authorforcreationwithdateofdeath+json -> for route to allow
+        // Consumes attribute allows it to be called if that particular input type is used -> if route allows we 
+        // also only want this as input type
+        // NOTE: order does matter between this and the next one CreateAuthor, 2nd one accepts application/json
+        // which is more generic, so to make sure this one is triggered without a 404 we need to put it before
+        // next one, order matters for this one
+        [HttpPost(Name = "CreateAuthorWithDateOfDeath")]
+        [RequestHeaderMatchesMediaType("Content-Type",
+            "application/vnd.marvin.authorforcreationwithdateofdeath+json")]
+        [Consumes("application/vnd.marvin.authorforcreationwithdateofdeath+json")]
+        public ActionResult<AuthorDto> CreateAuthorWithDateOfDeath(AuthorForCreationWithDateOfDeathDto author)
+        {
+            var authorEntity = _mapper.Map<Entities.Author>(author);
+            _courseLibraryRepository.AddAuthor(authorEntity);
+            _courseLibraryRepository.Save();
+
+            var authorToReturn = _mapper.Map<Models.AuthorDto>(authorEntity);
+
+            var links = CreateLinksForAuthor(authorToReturn.Id, null);
+
+            // make an ExpandoObject to add the links to the existing response
+            var linkedResourceReturn = authorToReturn.ShapeData(null)
                 as IDictionary<string, object>;
+            linkedResourceReturn.Add("links", links);
 
-            linkedResourceToReturn.Add("links", links);
-
-            return Ok(linkedResourceToReturn);
-
-           // return Ok(_mapper.Map<AuthorDto>(authorFromRepo).ShapeData(fields));
+            // return 201 created response
+            return CreatedAtRoute("GetAuthor", new { authorId = linkedResourceReturn["Id"] }, linkedResourceReturn);
         }
 
         // since we used [ApiController] it includes the bad request check by default:
@@ -147,7 +223,16 @@ namespace CourseLibrary.API.Controllers
         // {
         //  return BadRequest();
         // }
+        // RequestHeaderMatchesMediaType is a custom attribute made to ROUTE this method if
+        // Content-Type is either application/json or application/vnd.marvin.authorforcreation+json -> for route to allow
+        // Consumes attribute allows it to be called if those particular input types are used -> if route allow we
+        // also want these as input types
         [HttpPost(Name = "CreateAuthor")]
+        [RequestHeaderMatchesMediaType("Content-Type",
+            "application/json",
+            "application/vnd.marvin.authorforcreation+json")]
+        [Consumes("application/json",
+            "application/vnd.marvin.authorforcreation+json")]
         public ActionResult<AuthorDto> CreateAuthor(AuthorForCreationDto author)
         {
             var authorEntity = _mapper.Map<Entities.Author>(author);
@@ -166,6 +251,7 @@ namespace CourseLibrary.API.Controllers
             // return 201 created response
             return CreatedAtRoute("GetAuthor", new { authorId = linkedResourceReturn["Id"] }, linkedResourceReturn);
         }
+
 
         // will let the consumer know if they can get the resouce, post to it, delete it and so on
         [HttpOptions]

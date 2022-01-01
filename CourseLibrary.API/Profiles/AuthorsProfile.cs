@@ -18,10 +18,14 @@ namespace CourseLibrary.API.Profiles
                 )
                 .ForMember(
                     dest => dest.Age,
-                    opt => opt.MapFrom(src => src.DateOfBirth.GetCurrentAge())
+                    opt => opt.MapFrom(src => src.DateOfBirth.GetCurrentAge(src.DateOfDeath))
                 );
 
             CreateMap<Models.AuthorForCreationDto, Entities.Author>();
+
+            CreateMap<Models.AuthorForCreationWithDateOfDeathDto, Entities.Author>();
+
+            CreateMap<Entities.Author, Models.AuthorFullDto>();
         }
     }
 }
