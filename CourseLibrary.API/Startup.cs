@@ -29,6 +29,8 @@ namespace CourseLibrary.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // adding caching store middleware
+            services.AddResponseCaching();
 
             // by default api returns json as output as that's the first item in outputformatters
             // we want to also support xml, but not as default, so add it to the by appending it
@@ -40,6 +42,12 @@ namespace CourseLibrary.API
            {
                // this will force api to return 406 status code for output it does not support
                setupAction.ReturnHttpNotAcceptable = true;
+               // setup caching profiles, so the same number (240) for example can be shared among different
+               // controllers and actions
+               setupAction.CacheProfiles.Add("240SecondsCacheProfile", 
+                   new CacheProfile { 
+                       Duration = 240 
+                   });
            })
            .AddNewtonsoftJson(setupAction =>
            {
@@ -150,6 +158,9 @@ namespace CourseLibrary.API
                     });
                 });
             }
+
+            // add caching to pipeline, do before routing so it kicks in before MVC routing does
+            app.UseResponseCaching();
 
             app.UseRouting();
 
