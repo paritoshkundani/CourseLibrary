@@ -47,6 +47,10 @@
               "target": "Package",
               "version": "[6.1.1, )"
             },
+            "Marvin.Cache.Headers": {
+              "target": "Package",
+              "version": "[4.0.0, )"
+            },
             "Microsoft.AspNetCore.JsonPatch": {
               "target": "Package",
               "version": "[3.0.0, )"

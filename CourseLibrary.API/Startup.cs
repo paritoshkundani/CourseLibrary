@@ -29,6 +29,18 @@ namespace CourseLibrary.API
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            // ETag support, using a middleware Kevin Dockx made (nuget package -> Marvin.Cache.Headers)
+            services.AddHttpCacheHeaders((expirationModel) =>
+            {
+                expirationModel.MaxAge = 60;
+                expirationModel.CacheLocation = Marvin.Cache.Headers.CacheLocation.Private;
+            },
+            (validationModelOptions)=>
+            {
+                // if response becomes stale make sure revalidation happens
+                validationModelOptions.MustRevalidate = true;
+            });
+
             // adding caching store middleware
             services.AddResponseCaching();
 
@@ -160,7 +172,14 @@ namespace CourseLibrary.API
             }
 
             // add caching to pipeline, do before routing so it kicks in before MVC routing does
-            app.UseResponseCaching();
+            // he commented this out saying for simple cases use it, otherwise avoid this as it
+            // does not work with ETags out of the box, it does not take ETags into account to 
+            // avoid caching if ETag has changed -> See Demo - ETags and the Validation Model
+            // in Supporting HTTP Cache for ASP.NET Core APIs
+            //app.UseResponseCaching();
+            
+            // run the ETag check after the cache check, if that doesn't stop the request then check ETag
+            app.UseHttpCacheHeaders();
 
             app.UseRouting();
 
